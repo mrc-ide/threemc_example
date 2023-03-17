@@ -30,6 +30,15 @@ mod <- "threemc"
 compile(paste0(mod, ".cpp"))
 dyn.load(dynlib(mod))
 
+# TMB config options 
+TMB::config(
+  # should reduce memory usage https://tinyurl.com/5cuxmm4t
+  tmbad.sparse_hessian_compress = 1, 
+  # Reduce memory peak of a parallel model by creating tapes in serial
+  tape.parallel = 0, 
+  DLL = mod
+)
+
 # construct objective function
 obj <- MakeADFun(
   data       = dat_tmb, 
