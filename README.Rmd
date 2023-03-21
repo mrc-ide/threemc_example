@@ -13,7 +13,13 @@ knitr::opts_chunk$set(
 
 # threemc_example
 
-We've noticed that when running TMB memory is spiking during tape optimisation and we would like to understand why. This is causing some problems for running model for larger countries as it means we need to run on a machine with > 500GB of memory when this amount of memory is only used for a small period of the model fit.
+We've noticed that when running TMB, system memory is spiking during tape optimisation and we would like to understand why. This is causing some problems for running model for large countries as it means we need to run on a machine with > 500GB of memory. This amount of memory is only used for a small period of the model fit and the rest of the fit continues. We're trying to understand
+
+* Why does the memory spike like this?
+* Can we predict the size of the memory spike from size in input data, number of parameters etc.
+* Can we save out the optimised tape and then use this for multiple model fits? This could allow us to do the costly optimisation on a beefy node but then run the rest of the simulation on smaller nodes.
+
+This repo contains an example of a smaller model fit which can be run with about 11GB of RAM but still shows the large spike during optimisation.
 
 ## Prerequisites
 
