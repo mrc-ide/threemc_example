@@ -1,0 +1,49 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# threemc_example
+
+We've noticed that when running TMB memory is spiking during tape optimisation and we would like to understand why. This is causing some problems for running model for larger countries as it means we need to run on a machine with > 500GB of memory when this amount of memory is only used for a small period of the model fit.
+
+## Prerequisites
+
+`readr`, `sf`, `TMB` and `threemc` packages
+
+Install threemc from github
+```r
+remotes::install_github("mrc-ide/threemc")
+```
+
+## Running
+
+Run the script from the command line via `./script.R`
+
+or from R with working dir set to root of this repo
+```r
+source("threemc_fit.R")
+threemc_fit()
+```
+
+## Profile
+
+Run with profile from [memprof](https://github.com/mrc-ide/memprof)
+
+```{r}
+source("threemc_fit.R")
+mem <- memprof::with_monitor(threemc_fit())
+plot(mem)
+```
+## Full model fit
+
+Running the model with a larger country leads to huge spikes in memory usage > 500GB.
+
