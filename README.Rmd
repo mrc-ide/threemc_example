@@ -46,7 +46,12 @@ Run with profile from [memprof](https://github.com/mrc-ide/memprof)
 
 ```{r}
 source("threemc_fit.R")
-mem <- memprof::with_monitor(threemc_fit())
+# load shell dataset
+shell_dat <- readr::read_csv("data/shell_data.csv.gz")
+# load shapefiles
+areas <- sf::read_sf("data/areas.geojson")
+
+mem <- memprof::with_monitor(threemc_fit(shell_dat, areas))
 plot(mem)
 ```
 ## Full model fit

@@ -2,12 +2,8 @@
 #'
 #' @return fit object
 #' @export
-threemc_fit <- function() {
-  # load shell dataset
-  shell_dat <- readr::read_csv("data/shell_data.csv.gz")
-  # load shapefiles
-  areas <- sf::read_sf("data/areas.geojson")
-
+threemc_fit <- function(shell_dat, areas) {
+  
   #### Create model matrices ####
 
   dat_tmb <- threemc::threemc_prepare_model_data(out = shell_dat, areas = areas)
