@@ -5,4 +5,6 @@
 *.Rproj
 *.o
 *.so
+*.dll
 *.html
+
