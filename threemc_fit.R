@@ -4,14 +4,18 @@
 #'
 #' @return name of the loaded DLL
 #' 
-tmb_compile_and_load <- function(code) {
-  f <- tempfile(fileext = ".cpp")
+tmb_compile_and_load <- function(mod, ...) {
+  f <- tempfile(fileext = ".cpp", ...)
+  if (!dir.exists(dirname(f))) dir.create(dirname(f))
   writeLines(mod, f)
+  # for Windows, need to replace "\\" with *Nix-like "/" 
+  if(grepl("\\", "src\\threemc.cpp", fixed = TRUE)) {
+    f <- gsub("\\\\", "/", f)
+  }
   TMB::compile(f)
   dyn.load(TMB::dynlib(tools::file_path_sans_ext(f)))
   basename(tools::file_path_sans_ext(f))
 }
-
 
 #' Run example threemc fit for testing
 #'
@@ -30,9 +34,6 @@ threemc_fit <- function(shell_dat, areas, mod) {
   #### Fit TMB model ####
 
   # compile and load threemc TMB model
-  # mod <- "threemc"
-  # TMB::compile(paste0(mod, ".cpp"))
-  # dyn.load(TMB::dynlib(mod))
   dll <- tmb_compile_and_load(mod)
 
   # TMB config options
