@@ -50,10 +50,12 @@ source("threemc_fit.R")
 shell_dat <- readr::read_csv("data/shell_data.csv.gz")
 # load shapefiles
 areas <- sf::read_sf("data/areas.geojson")
-
-mem <- memprof::with_monitor(threemc_fit(shell_dat, areas))
+# load text from C++ mod into R
+mod <- readLines("src/threemc.cpp")
+mem <- memprof::with_monitor(threemc_fit(shell_dat, areas, mod))
 plot(mem)
 ```
+
 ## Full model fit
 
 Running the model with a larger country leads to huge spikes in memory usage > 500GB.

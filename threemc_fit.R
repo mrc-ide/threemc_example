@@ -1,8 +1,23 @@
+#' Compile and load model from character string
+#' (from https://github.com/jeffeaton/inla-sandbox/blob/master/inla-tmb-constraints.R#L12-L24)
+#' @param code model code as a character string
+#'
+#' @return name of the loaded DLL
+#' 
+tmb_compile_and_load <- function(code) {
+  f <- tempfile(fileext = ".cpp")
+  writeLines(mod, f)
+  TMB::compile(f)
+  dyn.load(TMB::dynlib(tools::file_path_sans_ext(f)))
+  basename(tools::file_path_sans_ext(f))
+}
+
+
 #' Run example threemc fit for testing
 #'
 #' @return fit object
 #' @export
-threemc_fit <- function(shell_dat, areas) {
+threemc_fit <- function(shell_dat, areas, mod) {
   
   #### Create model matrices ####
 
@@ -15,9 +30,10 @@ threemc_fit <- function(shell_dat, areas) {
   #### Fit TMB model ####
 
   # compile and load threemc TMB model
-  mod <- "threemc"
-  TMB::compile(paste0(mod, ".cpp"))
-  dyn.load(TMB::dynlib(mod))
+  # mod <- "threemc"
+  # TMB::compile(paste0(mod, ".cpp"))
+  # dyn.load(TMB::dynlib(mod))
+  dll <- tmb_compile_and_load(mod)
 
   # TMB config options
   TMB::config(
@@ -25,7 +41,7 @@ threemc_fit <- function(shell_dat, areas) {
     tmbad.sparse_hessian_compress = 1,
     # Reduce memory peak of a parallel model by creating tapes in serial
     tape.parallel = 0,
-    DLL = mod
+    DLL = dll
   )
 
   # construct objective function
@@ -38,7 +54,7 @@ threemc_fit <- function(shell_dat, areas) {
       "u_age_tmc", "u_space_tmc",
       "u_agespace_tmc"
     ),
-    DLL        = mod
+    DLL        = dll
   )
 
   # run optimiser (very memory intensive in "optimising tape ..." stage!)
