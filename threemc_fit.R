@@ -1,3 +1,9 @@
+#' Wrapper function for `memprof::with_monitor()` to only return memory_use
+#' TMB object for GHA is too large to pull from cluster into local session
+memory_use <- function(x) {
+  return(x$memory_use)  
+}
+
 #' Compile and load model from character string
 #' (from https://github.com/jeffeaton/inla-sandbox/blob/master/inla-tmb-constraints.R#L12-L24)
 #' @param code model code as a character string
@@ -22,6 +28,11 @@ tmb_compile_and_load <- function(mod, ...) {
 #' @return fit object
 #' @export
 threemc_fit <- function(shell_dat, areas, mod) {
+  
+  # ensure only shapefiles for country in shell_dat are present
+  areas <- subset(areas, iso3 %in% substr(shell_dat$area_id, 0, 3))
+  # add space column
+  areas$space <- seq_len(nrow(areas))
   
   #### Create model matrices ####
 
