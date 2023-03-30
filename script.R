@@ -3,7 +3,7 @@
 source("threemc_fit.R")
 
 # load shell dataset
-shell_dat <- readr::read_csv("data/shell_data.csv.gz")
+shell_dat <- readr::read_csv("data/shell_data_lso.csv.gz")
 # load shapefiles
 areas <- sf::read_sf("data/areas.geojson")
 
