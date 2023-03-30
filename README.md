@@ -49,7 +49,7 @@ Run with profile from [memprof](https://github.com/mrc-ide/memprof)
 ``` r
 source("threemc_fit.R")
 # load shell dataset
-shell_dat <- readr::read_csv("data/shell_data.csv.gz")
+shell_dat <- readr::read_csv("data/shell_data_lso.csv.gz")
 #> Rows: 13200 Columns: 15
 #> ── Column specification ────────────────────────────────────────────────────────
 #> Delimiter: ","
@@ -60,8 +60,9 @@ shell_dat <- readr::read_csv("data/shell_data.csv.gz")
 #> ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
 # load shapefiles
 areas <- sf::read_sf("data/areas.geojson")
-
-mem <- memprof::with_monitor(threemc_fit(shell_dat, areas))
+# load text from C++ mod into R
+mod <- readLines("src/threemc.cpp")
+mem <- memprof::with_monitor(threemc_fit(shell_dat, areas, mod))
 #> area_lev arg missing, taken as maximum area level in shell dataset
 #> Warning: as(<matrix>, "dgTMatrix") is deprecated since Matrix 1.5-0; do
 #> as(as(as(., "dMatrix"), "generalMatrix"), "TsparseMatrix") instead
@@ -496,8 +497,98 @@ mem <- memprof::with_monitor(threemc_fit(shell_dat, areas))
 plot(mem)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-2-1.png)<!-- --> \## Full
-model fit
+![](README_files/figure-gfm/unnamed-chunk-2-1.png)<!-- -->
 
-Running the model with a larger country leads to huge spikes in memory
-usage \> 500GB.
+## Cluster Example
+
+The above example is for a small country, that can be run locally.
+However, when we look at modelling a large country, such as Ghana, we
+must run the model on a high performance cluster. The spike in memory
+shown above can even exceed 500GB.
+
+``` r
+# load shell dataset for Ghana
+shell_dat_gha <- readr::read_csv("data/shell_data_gha.csv.gz")
+#> Rows: 349020 Columns: 15
+#> ── Column specification ────────────────────────────────────────────────────────
+#> Delimiter: ","
+#> chr  (2): area_id, area_name
+#> dbl (13): area_level, space, year, circ_age, time, age, population, N, obs_m...
+#> 
+#> ℹ Use `spec()` to retrieve the full column specification for this data.
+#> ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+```
+
+``` r
+# specify directory that 
+root <- "~/net/unaids-naomi/threemc-orderly/contexts_4"
+
+# cluster config
+config <- didehpc::didehpc_config(
+  workdir  = root,
+  cluster  = "fi--didemrchnb", 
+  # need to request every core of largest cluster nodes in order to fit model
+  # => at lower memory usage we could be running much more concurrent models!
+  template = "32Core",        
+  cores    = 32
+)
+
+# create symlink in cluster contexts dir to sourced functions
+source_file <- file.path(root, "threemc_fit.R")
+if (.Platform$OS.type != "windows" && !file.exists(source_file)) {
+  system(paste0("ln -s threemc_fit.R ", source_file))
+}
+
+# setup context for orderly task 
+ctx <- context::context_save(
+  path = root,
+  # functions to source in current directory
+  sources = "./threemc_fit.R",
+  # CRAN packages
+  packages = c("dplyr", "sf", "readr", "TMB", "stats"),
+  # packages from github 
+  package_sources = conan::conan_sources(c(
+    "github::mrc-ide/threemc", 
+    "github::mrc-ide/memprof"
+  ))
+)
+#> [ open:db   ]  rds
+# queue above contexts
+obj <- didehpc::queue_didehpc(context = ctx, config = config)
+#> Loading context b28b5835b4de4e3dc650b840d2453a65
+#> [ context   ]  b28b5835b4de4e3dc650b840d2453a65
+#> [ library   ]  dplyr, sf, readr, TMB, stats
+#> Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+#> 
+#> Attaching package: 'dplyr'
+#> The following objects are masked from 'package:stats':
+#> 
+#>     filter, lag
+#> The following objects are masked from 'package:base':
+#> 
+#>     intersect, setdiff, setequal, union
+#> [ namespace ]
+#> [ source    ]  threemc_fit.R
+```
+
+Running our model for Ghana, we can see how the memory spike scales up
+significantly as a result of the need for additional random effects in
+larger countries.
+
+``` r
+# profile memory usage
+t <- obj$enqueue(
+  memory_use(memprof::with_monitor(threemc_fit(shell_dat_gha, areas, mod)))
+)
+while (!t$status() %in% c("COMPLETE", "ERROR")) {
+  Sys.sleep(15)
+}
+
+# plot result
+res <- t$result()
+plot(res)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
+
+\`\`\`
