@@ -11,9 +11,11 @@ of memory usage when running the model with a relatively large country
 ![](README_files/figure-gfm/ghanaPlot-1.png)<!-- -->
 
 The memory is spiking during tape optimisation which means we need to
-run on a machine with \> 500GB of memory. This amount of memory is only
-used for a small period of the model fit and the rest of the fit
-continues. We’re trying to understand
+run on a machine with \> 500GB of memory. These are the biggest cluster
+nodes we have available, meaning we’re sitting on a huge amount of
+compute which we only really need for a small fraction of the model fit.
+If we were able to reduce the memory usage we could run more concurrent
+models. We’re trying to understand
 
 - Why does the memory spike like this?
 - Can we predict the size of the memory spike from size in input data,
