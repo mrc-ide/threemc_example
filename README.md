@@ -10,12 +10,13 @@ of memory usage when running the model with a relatively large country
 
 ![](README_files/figure-gfm/ghanaPlot-1.png)<!-- -->
 
-The memory is spiking during tape optimisation which means we need to
-run on a machine with \> 500GB of memory. These are the biggest cluster
-nodes we have available, meaning we’re sitting on a huge amount of
-compute which we only really need for a small fraction of the model fit.
-If we were able to reduce the memory usage we could run more concurrent
-models. We’re trying to understand
+In the above fit memory spikes \> 100GB during tape optimisation. If we
+add a time TMC effect we can get spikes of over 500GB meaning we need to
+run our most powerful machines. These are the biggest cluster nodes we
+have available, meaning we’re sitting on a huge amount of compute which
+we only really need for a small fraction of the model fit. If we were
+able to reduce the memory usage we could run more concurrent models.
+We’re trying to understand:
 
 - Why does the memory spike like this?
 - Can we predict the size of the memory spike from size in input data,
@@ -60,7 +61,7 @@ source("threemc_fit.R")
 # load shell dataset
 shell_dat <- readr::read_csv("data/shell_data_lso.csv.gz")
 #> Rows: 13200 Columns: 15
-#> ── Column specification ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+#> ── Column specification ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 #> Delimiter: ","
 #> chr  (2): area_id, area_name
 #> dbl (13): area_level, space, year, circ_age, time, age, population, N, obs_mmc, obs_tmc, obs_mc, cens, icens
