@@ -1,7 +1,7 @@
 #' Wrapper function for `memprof::with_monitor()` to only return memory_use
 #' TMB object for GHA is too large to pull from cluster into local session
 memory_use <- function(x) {
-  return(x$memory_use)  
+  return(x$memory_use)
 }
 
 #' Compile and load model from character string
@@ -9,12 +9,12 @@ memory_use <- function(x) {
 #' @param code model code as a character string
 #'
 #' @return name of the loaded DLL
-#' 
+#'
 tmb_compile_and_load <- function(mod, ...) {
   f <- tempfile(fileext = ".cpp", ...)
   if (!dir.exists(dirname(f))) dir.create(dirname(f))
   writeLines(mod, f)
-  # for Windows, need to replace "\\" with *Nix-like "/" 
+  # for Windows, need to replace "\\" with *Nix-like "/"
   if(grepl("\\", "src\\threemc.cpp", fixed = TRUE)) {
     f <- gsub("\\\\", "/", f)
   }
@@ -27,13 +27,13 @@ tmb_compile_and_load <- function(mod, ...) {
 #'
 #' @return fit object
 #' @export
-threemc_fit <- function(shell_dat, areas, mod) {
-  
+threemc_fit <- function(shell_dat, areas, mod, silent = FALSE) {
+
   # ensure only shapefiles for country in shell_dat are present
   areas <- subset(areas, iso3 %in% substr(shell_dat$area_id, 0, 3))
   # add space column
   areas$space <- seq_len(nrow(areas))
-  
+
   #### Create model matrices ####
 
   dat_tmb <- threemc::threemc_prepare_model_data(out = shell_dat, areas = areas)
@@ -66,7 +66,8 @@ threemc_fit <- function(shell_dat, areas, mod) {
       "u_age_tmc", "u_space_tmc",
       "u_agespace_tmc"
     ),
-    DLL        = dll
+    DLL        = dll,
+    silent = silent
   )
 
   # run optimiser (very memory intensive in "optimising tape ..." stage!)
