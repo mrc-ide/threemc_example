@@ -1,12 +1,38 @@
+#' Wrapper function for `memprof::with_monitor()` to only return memory_use
+#' TMB object for GHA is too large to pull from cluster into local session
+memory_use <- function(x) {
+  return(x$memory_use)
+}
+
+#' Compile and load model from character string
+#' (from https://github.com/jeffeaton/inla-sandbox/blob/master/inla-tmb-constraints.R#L12-L24)
+#' @param code model code as a character string
+#'
+#' @return name of the loaded DLL
+#'
+tmb_compile_and_load <- function(mod, ...) {
+  f <- tempfile(fileext = ".cpp", ...)
+  if (!dir.exists(dirname(f))) dir.create(dirname(f))
+  writeLines(mod, f)
+  # for Windows, need to replace "\\" with *Nix-like "/"
+  if(grepl("\\", "src\\threemc.cpp", fixed = TRUE)) {
+    f <- gsub("\\\\", "/", f)
+  }
+  TMB::compile(f)
+  dyn.load(TMB::dynlib(tools::file_path_sans_ext(f)))
+  basename(tools::file_path_sans_ext(f))
+}
+
 #' Run example threemc fit for testing
 #'
 #' @return fit object
 #' @export
-threemc_fit <- function() {
-  # load shell dataset
-  shell_dat <- readr::read_csv("data/shell_data.csv.gz")
-  # load shapefiles
-  areas <- sf::read_sf("data/areas.geojson")
+threemc_fit <- function(shell_dat, areas, mod, silent = FALSE) {
+
+  # ensure only shapefiles for country in shell_dat are present
+  areas <- subset(areas, iso3 %in% substr(shell_dat$area_id, 0, 3))
+  # add space column
+  areas$space <- seq_len(nrow(areas))
 
   #### Create model matrices ####
 
@@ -19,9 +45,7 @@ threemc_fit <- function() {
   #### Fit TMB model ####
 
   # compile and load threemc TMB model
-  mod <- "threemc"
-  TMB::compile(paste0(mod, ".cpp"))
-  dyn.load(TMB::dynlib(mod))
+  dll <- tmb_compile_and_load(mod)
 
   # TMB config options
   TMB::config(
@@ -29,7 +53,7 @@ threemc_fit <- function() {
     tmbad.sparse_hessian_compress = 1,
     # Reduce memory peak of a parallel model by creating tapes in serial
     tape.parallel = 0,
-    DLL = mod
+    DLL = dll
   )
 
   # construct objective function
@@ -42,7 +66,8 @@ threemc_fit <- function() {
       "u_age_tmc", "u_space_tmc",
       "u_agespace_tmc"
     ),
-    DLL        = mod
+    DLL        = dll,
+    silent = silent
   )
 
   # run optimiser (very memory intensive in "optimising tape ..." stage!)
