@@ -18,7 +18,7 @@ tmb_compile_and_load <- function(mod, ...) {
   if(grepl("\\", "src\\threemc.cpp", fixed = TRUE)) {
     f <- gsub("\\\\", "/", f)
   }
-  TMB::compile(f)
+  TMB::compile(f, framework = "TMBad")
   dyn.load(TMB::dynlib(tools::file_path_sans_ext(f)))
   basename(tools::file_path_sans_ext(f))
 }
