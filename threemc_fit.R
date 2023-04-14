@@ -10,7 +10,7 @@ memory_use <- function(x) {
 #'
 #' @return name of the loaded DLL
 #'
-tmb_compile_and_load <- function(mod, ...) {
+tmb_compile_and_load <- function(mod, framework = "TMBad", ...) {
   f <- tempfile(fileext = ".cpp", ...)
   if (!dir.exists(dirname(f))) dir.create(dirname(f))
   writeLines(mod, f)
@@ -18,7 +18,7 @@ tmb_compile_and_load <- function(mod, ...) {
   if(grepl("\\", "src\\threemc.cpp", fixed = TRUE)) {
     f <- gsub("\\\\", "/", f)
   }
-  TMB::compile(f, framework = "TMBad")
+  TMB::compile(f, framework = framework)
   dyn.load(TMB::dynlib(tools::file_path_sans_ext(f)))
   basename(tools::file_path_sans_ext(f))
 }
@@ -27,7 +27,7 @@ tmb_compile_and_load <- function(mod, ...) {
 #'
 #' @return fit object
 #' @export
-threemc_fit <- function(shell_dat, areas, mod, silent = FALSE) {
+threemc_fit <- function(shell_dat, areas, mod,  silent = FALSE, ...) {
 
   # ensure only shapefiles for country in shell_dat are present
   areas <- subset(areas, iso3 %in% substr(shell_dat$area_id, 0, 3))
@@ -45,7 +45,7 @@ threemc_fit <- function(shell_dat, areas, mod, silent = FALSE) {
   #### Fit TMB model ####
 
   # compile and load threemc TMB model
-  dll <- tmb_compile_and_load(mod)
+  dll <- tmb_compile_and_load(mod, ...)
 
   # TMB config options
   TMB::config(
