@@ -5,8 +5,10 @@ when we look at modelling a large country, such as Ghana, we must run the model
 on a high performance cluster. The spike in memory shown above can even 
 exceed 500GB. 
 ```{r}
-# load shell dataset for Ghana
+# load shell and areas datasets for Ghana, and mod
 shell_dat_gha <- readr::read_csv("data/shell_data_gha.csv.gz")
+areas <- sf::read_sf("data/areas.geojson")
+mod <- readLines("src/threemc.cpp")
 ```
 
 ```{r, results = "false"}
