@@ -1,0 +1,235 @@
+---
+title: "Testing New Compilation Method"
+author: "Paddy O'Toole"
+date: "2023-04-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Here, we would like to test that the following have not been significantly 
+changed by taking on kaskr's suggestions on the choice of AD framework
+used by `TMB::compile` (TMBad vs the default of CppAD): 
+1. modelling results and 
+2. time to fit.
+
+Of course, we would also like to have seen a decrease in the memory spike 
+experienced while fitting!
+
+## Prelims 
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(microbenchmark)
+```
+
+
+```{r}
+# load shell and areas datasets for Lesotho
+shell_dat_lso <- readr::read_csv("data/shell_data_lso.csv.gz")
+areas <- sf::read_sf("data/areas.geojson")
+```
+
+```{r}
+# Source functions & load mod 
+source("threemc_fit.R")
+mod <- readLines("src/threemc.cpp")
+```
+
+## Fit Models
+
+Compile our two models:
+```{r, results = "hide", message = FALSE}
+# `framework` is passed to `TMB::compile`
+mod_cppad <- tmb_compile_and_load(mod, framework = "CppAD")
+mod_tmbad <- tmb_compile_and_load(mod, framework = "TMBad")
+```
+
+Fit our models with `threemc`.
+```{r, results = "hide", message = FALSE}
+# fit model with CPPad
+fit_cppad <-  memprof::with_monitor(threemc_fit(
+  shell_dat_lso, areas, mod_cppad, silent = TRUE
+))
+# fit model with TMBad 
+fit_tmbad <-  memprof::with_monitor(threemc_fit(
+  shell_dat_lso, areas, mod_tmbad, silent = TRUE
+))
+```
+
+## 0: Memory used
+
+Inspect the memory used by both AD frameworks with `memeprof`:
+```{r}
+bind_rows(
+  select(memprof:::used_memory_total_by_time(fit_cppad$memory_use), 
+         used = used, 
+         time),
+  select(memprof:::used_memory_total_by_time(fit_tmbad$memory_use), 
+         used = used,
+         time), 
+  .id = "indicator"
+) %>% 
+  mutate(
+    used      = used / 1e6,
+    indicator = ifelse(indicator == 1, "CppAD", "TMBad")
+  ) %>% 
+  ggplot(aes(x = time, y = used, colour = indicator)) + 
+  geom_line() + 
+  ggtitle("CppAD vs TMBad: Memory Used") + 
+  xlab("Time (s)") + 
+  ylab("System memory used (MB)") + 
+  theme_bw()
+```
+
+It appears that the TMBad framework uses substantially less memory, and does 
+not experience a memory "spike". However, it is concerning that it seems to 
+take more than twice as long to fit. 
+
+## 1. Results 
+
+We can calculate quantiles from our sample values, and plot these, to compare 
+results from both models:
+```{r}
+res_cppad <- fit_cppad$result
+res_tmbad <- fit_tmbad$result
+
+out_cppad <- threemc::compute_quantiles(
+  shell_dat_lso, fit = res_cppad, area_lev = 1
+)
+out_tmbad <- threemc::compute_quantiles(
+  shell_dat_lso, fit = res_tmbad, area_lev = 1
+)
+```
+
+```{r}
+out_joined <- bind_rows(out_cppad, out_tmbad, .id = "indicator") %>% 
+  filter(year == max(.data$year)) %>% 
+  mutate(indicator = ifelse(indicator == 1, "CppAD", "TMBad"))
+
+plt_fun <- function(out_joined, y_var) {
+  
+ out_joined %>% 
+  ggplot(aes(
+    x      = circ_age,
+    # y      = cum_incM,
+    y      = .data[[paste0(y_var, "M")]],
+    ymin   = .data[[paste0(y_var, "L")]],
+    ymax   = .data[[paste0(y_var, "U")]],
+    group  = as.factor(indicator), 
+    colour = as.factor(indicator)
+  )) + 
+  geom_ribbon(
+    fill = "lightgrey",
+    colour = NA
+  ) +
+  geom_line(size = 1) +
+  scale_y_continuous(breaks = seq(0, 1, by = 1), labels = scales::label_percent(accuracy = 1)) +
+  labs(
+    x = "Age", y = "Coverage", colour = ""
+  ) +
+  theme_bw() +
+  facet_grid(area_name ~ indicator) + 
+  theme(
+    
+    panel.spacing = unit(6.5, "points"),
+    strip.text.y = element_blank(), 
+    strip.background.y = element_blank()
+  ) 
+}
+
+cols <- c("cum_inc", "cum_inc_mmc", "cum_inc_tmc")
+titles <- paste(
+  c("Total", "Medical", "Traditional"), "Circumcision vs Age, 2021"
+)
+
+lapply(seq_along(cols), function(i) {
+  plt_fun(out_joined, cols[i]) + 
+    ggtitle(titles[i])
+})
+```
+
+We can see that the two frameworks give what are essentially the same results. 
+
+TODO: Add something on euclidean distance between quantile estimates
+
+## 2. Time 
+
+```{r, message = FALSE, results = "hide", warning = FALSE}
+bm_res <- microbenchmark(
+  "CppAD" = threemc_fit(
+  shell_dat_lso, areas, mod_cppad, silent = TRUE
+  ), 
+  "TMBad" = threemc_fit(
+  shell_dat_lso, areas, mod_tmbad, silent = TRUE
+  ), 
+  times = 5
+)
+```
+```{r}
+bm_res
+```
+
+```{r, include = FALSE}
+bm_res_df <- data.frame(bm_res)
+means <- bm_res_df %>% 
+  group_by(expr) %>% 
+  summarise(mean(time)) %>% 
+  pull()
+```
+
+Therefore, CppAD is, on average, 
+~`r round(means[2] / means[1], digits = 1)` 
+times faster than TMBad. 
+
+It is unclear how this scales up for larger countries. To simulate this, model
+Lesotho at the country level: 
+```{r, message = FALSE, results = "hide", warning = FALSE}
+shell_dat_partial <- shell_dat_lso %>% 
+    filter(area_level == 1) %>% 
+    mutate(across(N:icens, ~ . * population)) %>% 
+    group_by(year, circ_age, time, age) %>% 
+    summarise(across(population:icens, sum), .groups = "drop") %>% 
+    mutate(
+        across(N:icens, ~ . / population), 
+        area_id    = "LSO", 
+        space      = 1, 
+        area_level = 0
+    ) %>% 
+  relocate(area_id, space, area_level)
+areas_partial <- filter(areas, area_level == 0)
+
+bm_res_small <- microbenchmark(
+  "CppAD" = threemc_fit(
+  shell_dat_partial, areas, mod_cppad, silent = TRUE
+  ), 
+  "TMBad" = threemc_fit(
+  shell_dat_partial, areas, mod_tmbad, silent = TRUE
+  ), 
+  times = 5
+)
+```
+```{r}
+bm_res_small
+```
+
+```{r, include = FALSE}
+bm_res_small_df <- data.frame(bm_res_small)
+means_small <- bm_res_small_df %>% 
+  group_by(expr) %>% 
+  summarise(mean(time)) %>% 
+  pull()
+```
+
+Therefore, CppAD is, on average, 
+~`r round(means_small[2] / means_small[1], digits = 1)` times
+faster than TMBad at the country level (i.e. for a much smaller number 
+of parameters), so unfortunately the difference in fit time for the two 
+different AD schemes appears to increase with the need to estimate more 
+parameters. This may cause our model with a time TMC effect to be very slow. It
+would probably therefore be a good idea to make the choice of framework an 
+option in `threemc`, whereby the user can choose to prioritise computational 
+or time efficiency. 
