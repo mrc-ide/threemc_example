@@ -45,7 +45,11 @@ threemc_fit <- function(shell_dat, areas, mod,  silent = FALSE, ...) {
   #### Fit TMB model ####
 
   # compile and load threemc TMB model
-  dll <- tmb_compile_and_load(mod, ...)
+  if (length(mod) == 1) {
+    dll <- mod
+  } else {
+    dll <- tmb_compile_and_load(mod, ...)
+  }
 
   # TMB config options
   TMB::config(
@@ -67,8 +71,13 @@ threemc_fit <- function(shell_dat, areas, mod,  silent = FALSE, ...) {
       "u_agespace_tmc"
     ),
     DLL        = dll,
-    silent = silent
+    silent     = silent
   )
+  
+  if (silent == TRUE) {
+    obj$env$tracemgc <- FALSE
+    obj$env$inner.control$trace <- FALSE
+  }
 
   # run optimiser (very memory intensive in "optimising tape ..." stage!)
   opt <- stats::nlminb(
