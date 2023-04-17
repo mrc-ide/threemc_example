@@ -85,9 +85,10 @@ bind_rows(
   theme_bw()
 ```
 
-It appears that the TMBad framework uses substantially less memory, and does 
-not experience a memory "spike". However, it is concerning that it seems to 
-take more than twice as long to fit. 
+It appears that the TMBad framework uses substantially less memory,
+and does not experience a memory “spike” (although it's "resting" memory usage 
+is slightly higher than CppAD, but this is negligible). However, it is 
+concerning that it seems to take more than twice as long to fit.
 
 ## 1. Results 
 
