@@ -7,4 +7,4 @@
 *.so
 *.dll
 *.html
-
+!tests.html
