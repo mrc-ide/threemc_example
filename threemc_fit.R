@@ -11,14 +11,14 @@ memory_use <- function(x) {
 #' @return name of the loaded DLL
 #'
 tmb_compile_and_load <- function(mod, framework = "TMBad", ...) {
-  f <- tempfile(fileext = ".cpp", ...)
+  f <- tempfile(fileext = ".cpp")
   if (!dir.exists(dirname(f))) dir.create(dirname(f))
   writeLines(mod, f)
   # for Windows, need to replace "\\" with *Nix-like "/"
   if(grepl("\\", "src\\threemc.cpp", fixed = TRUE)) {
     f <- gsub("\\\\", "/", f)
   }
-  TMB::compile(f, framework = framework)
+  TMB::compile(f, framework = framework, ...)
   dyn.load(TMB::dynlib(tools::file_path_sans_ext(f)))
   basename(tools::file_path_sans_ext(f))
 }
