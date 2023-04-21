@@ -1,0 +1,122 @@
+---
+title: "Testing Speed Up Options"
+author: "Paddy O'Toole"
+date: "2023-04-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Want to try the following options for speeding up model fit: 
+- Using '-3O' optimisation compiler flags, and
+- Using SuiteSparse with TMB (see `??TMB::compile`)
+
+## Initial
+
+```{r, results = "hide", message = FALSE}
+library(dplyr)
+library(ggplot2)
+library(microbenchmark)
+```
+
+```{r}
+# load shell and areas datasets for Lesotho
+shell_dat_lso <- readr::read_csv("data/shell_data_lso.csv.gz")
+areas <- sf::read_sf("data/areas.geojson")
+```
+
+```{r}
+# Source functions & load mod 
+source("threemc_fit.R")
+mod <- readLines("src/threemc.cpp")
+```
+
+Run at country level to speed things up.
+```{r}
+shell_dat_country <- shell_dat_lso %>% 
+    filter(area_level == 1) %>% 
+    mutate(across(N:icens, ~ . * population)) %>% 
+    group_by(year, circ_age, time, age) %>% 
+    summarise(across(population:icens, sum), .groups = "drop") %>% 
+    mutate(
+        across(N:icens, ~ . / population), 
+        area_id    = "LSO", 
+        space      = 1, 
+        area_level = 0
+    ) %>% 
+  relocate(area_id, space, area_level)
+areas_partial <- filter(areas, area_level == 0)
+```
+
+
+## Optimised compiler flags
+
+Compile the model twice, once with -O3 optimisation, and once without (although 
+I think R automatically performs -02 optimisation if no flags are provided?)
+```{r, results = "hide", message = FALSE}
+# `framework` and `flags` are passed to `TMB::compile`
+mod_opt <- tmb_compile_and_load(mod, framework = "TMBad", flags = "-O3")
+mod_non_opt <- tmb_compile_and_load(mod, framework = "TMBad")
+```
+
+```{r, message = FALSE, results = "hide", warning = FALSE}
+bm_res <- microbenchmark(
+   "Optimised" = threemc_fit(
+  shell_dat_country, areas, mod_opt, silent = TRUE
+  ), 
+  "Non-optimised" = threemc_fit(
+  shell_dat_country, areas, mod_non_opt, silent = TRUE
+  ), 
+  times = 10
+)
+```
+
+```{r}
+bm_res
+```
+
+Hence, optimising our TMB models at compilation time leads to less than a one
+second speed increase here. It is hoped that this scales up with more 
+random effects! (Test this yourself here)
+
+## SuiteSparse
+
+There are two parameters that can be passed to `TMB::compile` to have it make 
+use of SuiteSparse, `supernodal` and `longint`. Without getting too bogged down
+in the details here, test if any particular iteration of these parameters 
+possibly provides a speed up.
+```{r, results = "hide", message = FALSE}
+# doesn't work
+# mod_suitesparse1 <- tmb_compile_and_load(
+#   mod, framework = "TMBad", supernodal = TRUE
+# )
+# works
+mod_suitesparse2 <- tmb_compile_and_load(
+  mod, framework = "TMBad", longint = TRUE
+)
+# mod_suitesparse3 <- tmb_compile_and_load(
+#   mod, framework = "TMBad", supernodal = TRUE, longint = TRUE
+# )
+```
+
+```{r, message = FALSE, results = "hide", warning = FALSE}
+bm_res_suitesparse <- microbenchmark(
+  "Default" = threemc_fit(
+  shell_dat_country, areas, mod_non_opt, silent = TRUE
+  ), 
+  # "Supernodal" = threemc_fit(
+  # shell_dat_country, areas, mod_suitesparse1, silent = TRUE
+  # ), 
+  "longint" = threemc_fit(
+  shell_dat_country, areas, mod_suitesparse2, silent = TRUE
+  ), 
+  # "Supernodal & longint" = threemc_fit(
+  # shell_dat_country, areas, mod_suitesparse3, silent = TRUE
+  # ), 
+  times = 3
+)
+```
+
+## Overall
