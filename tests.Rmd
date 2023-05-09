@@ -87,8 +87,10 @@ bind_rows(
 
 It appears that the TMBad framework uses substantially less memory,
 and does not experience a memory “spike” (although it's "resting" memory usage 
-is slightly higher than CppAD, but this is negligible). However, it is 
-concerning that it seems to take more than twice as long to fit.
+is slightly higher than CppAD, but this is negligible). It is also interesting 
+to note that (provided the flag `tmbad.sparse_hessian_compress` is set to `0`!)
+the model using the TMBad framework fits significantly faster than the one 
+which uses the CppAD framework, even while being more memory efficient. 
 
 ## 1. Results 
 
@@ -182,9 +184,9 @@ means <- bm_res_df %>%
   pull()
 ```
 
-Therefore, CppAD is, on average, 
+Therefore, TMBad is, on average, 
 ~`r round(means[2] / means[1], digits = 1)` 
-times faster than TMBad. 
+times faster than CppAD. 
 
 It is unclear how this scales up for larger countries. To simulate this, model
 Lesotho at the country level: 
@@ -225,12 +227,10 @@ means_small <- bm_res_small_df %>%
   pull()
 ```
 
-Therefore, CppAD is, on average, 
-~`r round(means_small[2] / means_small[1], digits = 1)` times
-faster than TMBad at the country level (i.e. for a much smaller number 
-of parameters), so unfortunately the difference in fit time for the two 
+Therefore, TMBad is, on average, 
+~`r round(means_small[1] / means_small[2], digits = 1)` times
+faster than CppAD at the country level (i.e. for a much smaller number 
+of parameters/random effects), so the difference in fit time for the two 
 different AD schemes appears to increase with the need to estimate more 
-parameters. This may cause our model with a time TMC effect to be very slow. It
-would probably therefore be a good idea to make the choice of framework an 
-option in `threemc`, whereby the user can choose to prioritise computational 
-or time efficiency. 
+parameters. Therefore, it is both more memory and time efficient 
+to use the TMBad AD framework in `threemc`. 
