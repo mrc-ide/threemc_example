@@ -54,7 +54,9 @@ threemc_fit <- function(shell_dat, areas, mod,  silent = FALSE, ...) {
   # TMB config options
   TMB::config(
     # should reduce memory usage https://tinyurl.com/5cuxmm4t
-    tmbad.sparse_hessian_compress = 1,
+    # Note: https://github.com/mrc-ide/threemc_example/issues/4
+    # best to turn this off, ignored for CppAD & slows down TMBad 
+    # tmbad.sparse_hessian_compress = 1,
     # Reduce memory peak of a parallel model by creating tapes in serial
     tape.parallel = 0,
     DLL = dll
