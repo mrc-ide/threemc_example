@@ -169,7 +169,7 @@ bm_res <- microbenchmark(
   "TMBad" = threemc_fit(
   shell_dat_lso, areas, mod_tmbad, silent = TRUE
   ), 
-  times = 5
+  times = 3
 )
 ```
 ```{r}
@@ -185,7 +185,7 @@ means <- bm_res_df %>%
 ```
 
 Therefore, TMBad is, on average, 
-~`r round(means[2] / means[1], digits = 1)` 
+~`r round(means[1] / means[2], digits = 1)` 
 times faster than CppAD. 
 
 It is unclear how this scales up for larger countries. To simulate this, model
@@ -212,7 +212,7 @@ bm_res_small <- microbenchmark(
   "TMBad" = threemc_fit(
   shell_dat_partial, areas, mod_tmbad, silent = TRUE
   ), 
-  times = 5
+  times = 3
 )
 ```
 ```{r}
@@ -222,6 +222,7 @@ bm_res_small
 ```{r, include = FALSE}
 bm_res_small_df <- data.frame(bm_res_small)
 means_small <- bm_res_small_df %>% 
+  filter(!time > 9e10) %>% 
   group_by(expr) %>% 
   summarise(mean(time)) %>% 
   pull()
@@ -231,6 +232,8 @@ Therefore, TMBad is, on average,
 ~`r round(means_small[1] / means_small[2], digits = 1)` times
 faster than CppAD at the country level (i.e. for a much smaller number 
 of parameters/random effects), so the difference in fit time for the two 
-different AD schemes appears to increase with the need to estimate more 
-parameters. Therefore, it is both more memory and time efficient 
-to use the TMBad AD framework in `threemc`. 
+different AD schemes appears to stay relatively stable for different numbers 
+of parameters to be fit (although we could look into this a lot more!). 
+
+In conclusion, it is both more memory and time efficient to use the TMBad AD 
+framework in `threemc`. 
